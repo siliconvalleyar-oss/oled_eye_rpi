@@ -1,0 +1,187 @@
+Debes generar un proyecto C++ completo para Raspberry Pi (compatible con 32 y 64 bits) que use la librería bcm2835 y una pantalla OLED SSD1306 (128x64 píxeles) conectada por I2C o SPI. El proyecto debe emular un ojo de mascota (como un ojo animado) con diferentes modos de movimiento, parpadeo, expresión y seguimiento. El proyecto debe ser autocontenido, compilable con make, y debe incluir todo el código fuente, cabeceras, scripts de instalación, documentación y archivos de configuración. Sigue al pie de la letra la estructura de carpetas y archivos indicada, y completa cada archivo con contenido funcional y bien documentado.
+
+ESTRUCTURA OBLIGATORIA (crear todos los directorios y archivos)
+----------------------------------------------------------------
+├── bin
+│   └── App                           # binario final
+├── config
+│   ├── config.cfg                    # Configuración general (velocidad, modo inicial, etc.)
+│   └── hardware.cfg                  # Configuración de pines y protocolo (I2C/SPI)
+├── docs
+│   ├── ACTIVITY.md
+│   ├── API.md
+│   ├── ARCHITECTURE.md
+│   ├── ARQUITECTURA.md
+│   ├── BLUETOOTH.md                  # (Opcional, si se añade control remoto)
+│   ├── BUILD.md
+│   ├── CHANGELOG.md
+│   ├── CONTRIBUTING.md
+│   ├── DEPLOY.md
+│   ├── DESING.md                     # (mantén este nombre aunque sea "DESIGN")
+│   ├── DIAGRAMS.md
+│   ├── doxygen/                      # directorio (vacío)
+│   ├── HARDWARE.md
+│   ├── INSTALL.md
+│   ├── LEARNINGS.md                  # DEBES LEER Y COMPLETAR (si existe)
+│   ├── MEMORY_MAP.md
+│   ├── PROMPT.md                     # Copia de este prompt
+│   ├── REPORT.md
+│   ├── ROADMAP.md
+│   ├── RULES.md
+│   ├── SECURITY.md
+│   ├── SETUP.md
+│   ├── SKILLS.md
+│   ├── TESTING.md
+│   ├── TODO.md
+│   ├── TROUBLESHOOTING.md
+│   ├── USAGE.md
+│   └── WORKFLOW.md                   # DEBES LEER Y COMPLETAR (si existe)
+├── examples                          # directorio vacío (puedes poner ejemplos de uso)
+├── generate_basic_src.sh             # script auxiliar (puede estar vacío)
+├── include
+│   ├── core/                         # cabeceras del núcleo (vacío)
+│   ├── drivers/                      # cabeceras de drivers (vacío)
+│   ├── engine/                       # cabeceras del motor (vacío)
+│   ├── libraries/                    # cabeceras externas (vacío)
+│   ├── nlohmann/
+│   │   └── json.hpp                  # librería JSON (puede ser vacía o la oficial)
+│   ├── oled/
+│   │   ├── SSD1306_OLED_font.hpp     # Manejo de fuentes (puede ser básico)
+│   │   ├── SSD1306_OLED_graphics.hpp # Primitivas gráficas (píxel, línea, círculo, rectángulo)
+│   │   ├── SSD1306_OLED.hpp          # Clase principal para el driver OLED
+│   │   └── SSD1306_OLED_Print.hpp    # Soporte para impresión de texto (heredado de Print)
+│   └── security/                     # cabeceras de seguridad (vacío)
+├── LICENSE                           # licencia (ej. MIT)
+├── Makefile                          # archivo de compilación (debe definir VERSION)
+├── obj/                              # directorio para objetos (se creará durante la compilación)
+├── README.md                         # DEBES COMPLETARLO
+├── scripts/
+│   └── install_deps.sh               # script para instalar dependencias
+├── src/
+│   ├── engine/                       # fuentes del motor (vacío)
+│   ├── main.cpp                      # archivo principal (ver formato abajo)
+│   └── oled/
+│       ├── SSD1306_OLED.cpp          # Implementación del driver
+│       ├── SSD1306_OLED_font.cpp     # Datos de fuentes
+│       ├── SSD1306_OLED_graphics.cpp # Implementación de gráficos
+│       └── SSD1306_OLED_Print.cpp    # Implementación de impresión de texto
+└── VERSION                           # archivo con el número de versión (ej. 0.1.0)
+
+REQUISITOS FUNCIONALES DEL CÓDIGO
+----------------------------------
+- Usa la librería bcm2835 para el acceso a GPIO, SPI, I2C, etc. El driver OLED debe ser configurable para I2C o SPI a través del archivo de configuración.
+- Incluye siempre #include <memory> para gestión inteligente de memoria.
+- Define un namespace, por ejemplo "Eye", y dentro una clase "Eye_t" (o "Device_t") que gestione el ojo.
+- El main.cpp DEBE tener el siguiente formato exacto (sin cambios en la lógica):
+
+    #include <memory>
+    #include "Eye_t.hpp"   // o la ruta adecuada
+
+    int main() {
+        auto eye = std::make_unique<Eye::Eye_t>();
+        eye->run();
+        return 0;
+    }
+
+- La clase Eye_t debe tener un método run() que contenga la lógica principal: inicializar la pantalla, cargar configuración, y ejecutar un bucle que actualice la animación del ojo según el modo seleccionado. El bucle debe ser no bloqueante (con un delay controlado) para permitir parpadeos, movimientos suaves, etc.
+- No uses new/delete explícitos; la memoria se libera automáticamente al salir del main gracias al unique_ptr.
+
+VERSIÓN DE LA APLICACIÓN (EN TIEMPO DE COMPILACIÓN)
+---------------------------------------------------
+- La versión de la aplicación NO se lee del archivo VERSION en tiempo de ejecución, sino que se define como una macro en tiempo de compilación.
+- El Makefile debe pasar la versión al compilador usando -DVERSION="$(VERSION)" (o similar), leyendo el número del archivo VERSION.
+- En el código (por ejemplo, en Eye_t o en main), se debe mostrar la versión al iniciar la aplicación (por ejemplo, imprimiendo por consola: "App v1.2.3").
+- Además, se debe soportar un argumento de línea de comandos (por ejemplo, --version) que muestre la versión y termine la ejecución.
+- Todo el código debe estar completamente documentado con comentarios (explicando qué hace cada función, clase, y partes importantes).
+
+FUNCIONALIDAD ESPECÍFICA DEL OJO (EMULACIÓN DE MASCOTA)
+--------------------------------------------------------
+El ojo se dibujará en la pantalla OLED de 128x64 píxeles y representará una forma estilizada de ojo (esclera, iris, pupila, párpados). Debe implementar al menos los siguientes modos y comportamientos:
+
+1. Modo "Normal": Ojo abierto, mirando al frente. La pupila se mueve lentamente en un patrón aleatorio o suave (como explorando).
+2. Parpadeo: Cada cierto tiempo (configurable), el ojo se cierra y abre rápidamente (animación de párpado superior e inferior).
+3. Seguimiento: El ojo puede seguir un objeto simulado (por ejemplo, moviendo la pupila en función de una entrada de un joystick o de un sensor de distancia, o simplemente siguiendo un patrón predefinido).
+4. Expresiones: Cambio de forma de la ceja (si se dibuja) o del tamaño de la pupila (dilatación) para simular emociones (alegría, sorpresa, enfado, sueño).
+5. Movimientos sacádicos: La pupila realiza saltos rápidos entre posiciones.
+6. Modo "Dormido": Ojo cerrado con una línea horizontal que simula el párpado cerrado, y ocasionalmente un pequeño movimiento.
+7. Efecto de "brillo" o reflejo: Pequeño punto blanco en el iris para dar realismo.
+
+Todos estos comportamientos deben ser controlables mediante el archivo de configuración (config.cfg) o mediante argumentos de línea de comandos. Por ejemplo, se puede seleccionar el modo inicial, la velocidad de parpadeo, el rango de movimiento, etc.
+
+La implementación gráfica debe basarse en las primitivas de la librería SSD1306_OLED_graphics (dibujar píxeles, líneas, círculos, rectángulos). Se debe proporcionar una función para dibujar el ojo completo a partir de parámetros (posición de la pupila, apertura del párpado, etc.).
+
+CREACIÓN DEL REPOSITORIO GIT (DESDE SHELL CONSOLA)
+---------------------------------------------------
+El proceso de generación del proyecto debe incluir la creación de un repositorio Git. Para ello, el script o el asistente debe interactuar con el usuario y preguntar:
+
+    - Nombre de usuario en la plataforma (GitHub, GitLab, etc.).
+    - Credenciales (token de acceso o pedir que ya estén configuradas globalmente).
+    - Nombre del repositorio (que coincidirá con el nombre del proyecto).
+    - Visibilidad: público o privado.
+
+Con estos datos, el sistema debe ejecutar los siguientes comandos desde la shell (por ejemplo, al final del script de generación):
+
+    1. git init
+    2. git add .
+    3. git commit -m "Initial commit"
+    4. gh repo create <nombre> --public (o --private) --source=. --remote=origin --push
+       (si se usa GitHub CLI) o alternativamente:
+       - Crear el repositorio vía API (curl) y luego añadir el remote.
+    5. git push -u origin main (o master)
+
+Si no se dispone de GitHub CLI, se debe proporcionar instrucciones claras para que el usuario cree el repositorio manualmente y luego ejecute los comandos git remote add y git push. El asistente debe generar un script (por ejemplo, setup_git.sh) que automatice todo el proceso y que pueda ejecutarse después de la generación de archivos.
+
+El script debe verificar si gh está instalado; si no, debe ofrecer la opción de crear el repositorio localmente y mostrar los pasos para el remoto.
+
+SCRIPTS Y MAKEFILE
+------------------
+- scripts/install_deps.sh: Debe instalar bcm2835 (descargando y compilando desde el sitio oficial o usando apt) y cualquier otra dependencia (g++, make, git, etc.). Debe funcionar en Raspberry Pi de 32 y 64 bits.
+- Makefile:
+  * Debe leer la versión del archivo VERSION (ej. con $(shell cat VERSION)) y pasarla como -DVERSION="..." a todos los objetos.
+  * Compila todos los .cpp de src/ y sus subdirectorios, generando los .o en obj/ manteniendo la jerarquía (ej. obj/src/main.o, obj/src/oled/SSD1306_OLED.o).
+  * El binario final se llama "App" y se coloca en bin/.
+  * Enlaza con la librería bcm2835 (opciones -lbcm2835). Además, debe enlazar con -lrt -lpthread si es necesario.
+  * Debe soportar ambas arquitecturas (32 y 64 bits) mediante flags condicionales o detección automática.
+  * Incluye objetivos: all, clean, distclean, install (opcional).
+- generate_basic_src.sh: puede ser un script auxiliar para generar archivos fuente (opcional, puede estar vacío).
+- setup_git.sh: script que pregunta interactivamente los datos y configura el repositorio Git.
+
+DOCUMENTACIÓN (archivos .md)
+----------------------------
+- Lee (si existen) los archivos docs/LEARNINGS.md y docs/WORKFLOW.md y complétalos con información relevante al proyecto (aprendizajes, flujo de trabajo, etc.). Si no existen, créalos con contenido útil.
+- Completa TODOS los archivos .md de docs/ con descripciones coherentes y apropiadas para cada tema (API, arquitectura, instalación, uso, etc.). No dejes ninguno vacío.
+- README.md debe incluir:
+  * Nombre del proyecto y descripción general (por ejemplo, "EyePet - Emulación de ojo de mascota en OLED").
+  * Requisitos (Raspberry Pi, bcm2835, Git, gh opcional).
+  * Instrucciones de compilación e instalación (usando make y el script de dependencias).
+  * Indicación explícita de que la aplicación es compatible con Raspberry Pi de 32 bits y 64 bits.
+  * Un ejemplo básico de uso (cómo ejecutar, opciones de línea de comandos).
+  * Mención de que la versión se muestra al inicio y con --version.
+  * Instrucciones para configurar el repositorio Git (ejecutar setup_git.sh o los pasos manuales).
+  * Breve descripción de los modos del ojo y cómo configurarlos.
+
+CONTENIDO ADICIONAL
+-------------------
+- Los archivos de cabecera y fuente de la pantalla OLED (SSD1306) deben estar completamente implementados con funciones para:
+  * Inicialización del display (I2C o SPI).
+  * Dibujo de píxeles, líneas, rectángulos, círculos, texto.
+  * Control de contraste, inversión, etc.
+  * Buffer de pantalla en memoria para actualizaciones eficientes.
+- La clase Eye_t debe utilizar estas funciones para dibujar el ojo en el buffer y luego actualizar la pantalla.
+- El archivo VERSION debe contener un número de versión (ej. 0.1.0).
+
+COMENTARIOS Y DOCUMENTACIÓN DEL CÓDIGO
+--------------------------------------
+- Todo el código fuente (archivos .cpp y .hpp) debe estar ampliamente comentado en español o inglés (consistente), explicando:
+  * El propósito de cada clase, método y función.
+  * Los parámetros y retornos.
+  * La lógica importante.
+  * Las decisiones de diseño.
+- También se deben incluir comentarios de tipo Doxygen (si se desea) para facilitar la generación de documentación.
+- El código debe ser legible y seguir buenas prácticas de programación (nombres descriptivos, const-correctness, etc.).
+
+ENTREGABLE FINAL
+----------------
+El asistente debe generar todos los archivos y carpetas con el contenido adecuado. El código debe compilar sin errores en una Raspberry Pi (simulado o real) usando make. La documentación debe estar completa y bien redactada. Todo debe ser funcional, coherente y seguir las especificaciones dadas, incluyendo la configuración del repositorio Git mediante interacción con el usuario.
+
+NOTA: Este prompt contiene todas las instrucciones necesarias para generar el proyecto completo de emulación de ojo de mascota. Asegúrate de implementar las animaciones con suavidad y realismo, y de proporcionar una configuración flexible. El proyecto debe ser un ejemplo educativo y funcional para Raspberry Pi.

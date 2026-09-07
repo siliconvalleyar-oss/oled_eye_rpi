@@ -1,0 +1,101 @@
+# Build artifacts
+bin/
+obj/
+
+# Editor/OS files
+*.swp
+.DS_Store
+
+# Archivos y directorios generados por la compilación
+bin/
+obj/
+*.o
+*.so
+*.a
+*.exe
+*.out
+*.app
+
+# Archivos de depuración y símbolos
+*.dSYM/
+*.su
+*.idb
+*.pdb
+
+# Configuraciones locales y archivos de usuario
+*.local
+*.user
+*.cfg.local
+
+# Directorios de construcción alternativos
+build/
+dist/
+install/
+
+# Documentación generada automáticamente
+docs/doxygen/
+docs/html/
+docs/latex/
+
+# Archivos temporales y de editor
+*~
+.*.swp
+*.swp
+*.swo
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+*.bak
+*.log
+*.cache
+
+# Dependencias externas (si se instalan localmente)
+libs/
+external/
+dependencies/
+
+# Directorios y archivos de IDEs
+.vscode/
+.idea/
+*.iml
+.project
+.classpath
+.settings/
+*.code-workspace
+
+# Archivos de cobertura y pruebas
+*.test
+*.gcov
+*.gcda
+*.gcno
+
+# Respaldos de archivos importantes (no deben subirse)
+VERSION.bak
+LICENSE.bak
+README.bak
+
+# Scripts generados (si los hubiera)
+*_generated.sh
+
+# Archivos de datos grandes
+*.dat
+*.data
+*.csv
+*.db
+
+# Archivos de log (evitar subir logs)
+*.log
+
+# Archivos de compilación cruzada (específicos de arquitectura)
+*.o.arm
+*.o.x86
+
+# Sysroot descargado de la Raspberry Pi (artefacto generado por fetch_sysroot.sh)
+sysroot/
+
+# Configuración del asistente de desarrollo (opencode) y sus dependencias
+.opencode/
+.opencode/node_modules/
+
+tmp/
