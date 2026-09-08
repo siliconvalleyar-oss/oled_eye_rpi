@@ -2,6 +2,28 @@
 
 Historial de versiones de EyePet.
 
+## [v1.1.0] — 2026-09-07
+
+### Añadido
+
+- Estilos (versiones) de ojo configurables con `style` en `config.cfg` y
+  `--style 0..3`:
+  - `0 = Classic`: ojo redondeado clásico, pupila circular, un brillo.
+  - `1 = Anime`: elipse grande a pantalla completa, pupila amplia y 2 brillos.
+  - `2 = Feline`: felino con iris marcado y pupila vertical alargada.
+  - `3 = Robot`: visor rectangular, pupila cuadrada con retícula.
+- El ojo ahora ocupa toda la pantalla (128×64): geometría por defecto con
+  `sclera_r = 30` centrada en `(64, 32)` (antes `20` en `(64, 36)`).
+- Ojo cerrado con arco suave (`∪`) en lugar de línea recta (estética de
+  párpado relajado); los estilos Anime y Feline usan su propia variante.
+- El brillo/reflejo solo se dibuja si el ojo está suficientemente abierto
+  (no aparece durante el parpadeo).
+
+### Cambiado
+
+- Radios por defecto ajustados para el tamaño a pantalla completa
+  (`iris_r = 16`, `pupil_r = 6`, `move_range_x = 14`, `move_range_y = 8`).
+
 ## [v1.0.0] — 2026-09-07
 
 Versión inicial de EyePet (generación completa a partir del prompt).

@@ -49,6 +49,21 @@ enum class EyeMode_e : int {
 };
 
 /**
+ * @enum EyeStyle_e
+ * @brief Estilo (versión) de dibujo del ojo.
+ *
+ * @details Cada estilo cambia la forma de la esclera, el iris, la pupila y el
+ * patrón de brillo, permitiendo emular ojos muy distintos sobre el mismo OLED
+ * monocromo de 128x64.
+ */
+enum class EyeStyle_e : int {
+    Classic = 0, ///< Ojo clásico redondeado (pupila circular, un brillo).
+    Anime   = 1, ///< Estilo anime: elipse grande, pupila amplia y 2 brillos.
+    Feline  = 2, ///< Felino: pupila vertical alargada, iris marcado.
+    Robot   = 3  ///< Robótico: esclera rectangular, pupila cuadrada de rejilla.
+};
+
+/**
  * @struct EyeConfig_t
  * @brief Estructura con todos los parámetros de configuración del ojo.
  *
@@ -69,10 +84,11 @@ struct EyeConfig_t {
 
     // --- Modo y velocidad (config/config.cfg) ---
     int       mode        = static_cast<int>(EyeMode_e::Normal); ///< Modo inicial.
+    int       style       = static_cast<int>(EyeStyle_e::Classic); ///< Estilo del ojo.
     float     frameRate   = 30.0f;       ///< Fotogramas por segundo.
     int       frameDelayMs= 33;          ///< Delay por fotograma (ms).
-    unsigned  moveRangeX  = 16;          ///< Rango horizontal de la pupila.
-    unsigned  moveRangeY  = 10;          ///< Rango vertical de la pupila.
+    unsigned  moveRangeX  = 14;          ///< Rango horizontal de la pupila.
+    unsigned  moveRangeY  = 8;           ///< Rango vertical de la pupila.
 
     // --- Parpadeo ---
     unsigned  blinkMinMs = 1500;   ///< Intervalo mínimo entre parpadeos (ms).
@@ -81,17 +97,17 @@ struct EyeConfig_t {
     unsigned  blinkOpenMs  = 90;   ///< Tiempo para abrir el párpado (ms).
     unsigned  blinkClosedHoldMs = 100; ///< Tiempo con el ojo cerrado (ms).
 
-    // --- Geometría del ojo ---
+    // --- Geometría del ojo (ocupa toda la pantalla 128x64) ---
     int16_t eyeCenterX = 64;  ///< Centro del ojo en X.
-    int16_t eyeCenterY = 36;  ///< Centro del ojo en Y.
-    int16_t scleraR    = 20;  ///< Radio de la esclera.
-    int16_t irisR      = 12;  ///< Radio del iris.
-    int16_t pupilR     = 5;   ///< Radio de la pupila.
+    int16_t eyeCenterY = 32;  ///< Centro del ojo en Y.
+    int16_t scleraR    = 30;  ///< Radio de la esclera.
+    int16_t irisR      = 16;  ///< Radio del iris.
+    int16_t pupilR     = 6;   ///< Radio de la pupila.
 
     // --- Brillo / reflejo ---
     bool    glint = true;      ///< Mostrar punto de brillo.
-    int16_t glintDX = -4;      ///< Offset X del brillo respecto al centro del iris.
-    int16_t glintDY = -4;      ///< Offset Y del brillo.
+    int16_t glintDX = -6;      ///< Offset X del brillo respecto al centro del iris.
+    int16_t glintDY = -5;      ///< Offset Y del brillo.
     uint8_t glintR = 2;        ///< Radio del brillo.
 
     // --- Expresiones ---
@@ -162,6 +178,26 @@ private:
     void drawEye(float openAmount, int16_t pupilDX, int16_t pupilDY,
                  int16_t pupilR, int16_t browOffset);
     void clearScreenBuffer();
+
+    // --- Variantes (estilos) del ojo ---
+    void drawClassicEye(float openAmount, int16_t dx, int16_t dy,
+                        int16_t r, int16_t browOffset);
+    void drawAnimeEye(float openAmount, int16_t dx, int16_t dy,
+                      int16_t r, int16_t browOffset);
+    void drawFelineEye(float openAmount, int16_t dx, int16_t dy,
+                       int16_t r, int16_t browOffset);
+    void drawRobotEye(float openAmount, int16_t dx, int16_t dy,
+                      int16_t r, int16_t browOffset);
+
+    // --- Utilidades de dibujo geométrico ---
+    void fillEllipseInto(int16_t cx, int16_t cy, int16_t rx, int16_t ry,
+                         uint8_t color); ///< Elipse rellena por barrido horizontal.
+    void drawEyelidsCurve(int16_t cx, int16_t cy, int16_t rx, int16_t ry,
+                          float openF);  ///< Recorte curvo (blink/eclosionado).
+    void drawEyelidsFlat(int16_t cx, int16_t cy, int16_t rx, int16_t ry,
+                         float openF);   ///< Recorte recto (estilo robot).
+    void drawClosedEyeLine(int16_t cx, int16_t cy, int16_t rx); ///< Línea de dormido.
+    void drawSleepLine(int16_t cx, int16_t cy, int16_t rx);     ///< Línea + muesca.
 
     // --- Modos de comportamiento ---
     void updateNormal(float dtMs);

@@ -20,6 +20,7 @@ ojo con la configuración de `config/config.cfg`.
 |--------|-------------|
 | `--version`, `-v` | Muestra la versión y termina (no toca el hardware). |
 | `--mode <0..7>` | Modo inicial del ojo (0 Normal, 1 Tracking, 2 Happy, 3 Surprised, 4 Angry, 5 Sleepy, 6 Sleep, 7 Saccades). |
+| `--style <0..3>` | Estilo (versión) del ojo (0 Classic, 1 Anime, 2 Feline, 3 Robot). |
 | `--config <archivo>` | Ruta alternativa para `config/config.cfg`. |
 | `--hw-config <archivo>` | Ruta alternativa para `config/hardware.cfg`. |
 | `--help`, `-h` | Muestra la ayuda. |
@@ -29,6 +30,7 @@ ojo con la configuración de `config/config.cfg`.
 ```sh
 ./bin/App --version
 sudo ./bin/App --mode 1
+sudo ./bin/App --style 3          # ojo estilo Robot
 sudo ./bin/App --mode 6 --config /opt/eye/config.cfg
 ```
 
@@ -45,11 +47,25 @@ sudo ./bin/App --mode 6 --config /opt/eye/config.cfg
 | Sleep | 6 | Ojo cerrado con temblores ocasionales. |
 | Saccades | 7 | Saltos rápidos entre posiciones. |
 
+## Estilos del ojo
+
+El ojo **ocupa toda la pantalla** (128×64) con la geometría por defecto
+(`sclera_r = 30` centrado en `(64, 32)`). Se seleccionan con `style` en
+`config/config.cfg` o con `--style <0..3>`:
+
+| Estilo | Nº | Forma de la esclera | Pupila | Brillo |
+|--------|----|---------------------|--------|--------|
+| Classic | 0 | círculo | circular | 1 punto |
+| Anime | 1 | elipse ancha | amplia | 2 brillos |
+| Feline | 2 | elipse almendra | vertical alargada | línea vertical |
+| Robot | 3 | rectángulo (visor) | cuadrada con retícula | punto + scanline |
+
 ## Configuración dinámica
 
 Edita `config/config.cfg` para cambiar parámetros sin recompilar:
 
 - `mode` — modo inicial.
+- `style` — estilo (versión) del ojo.
 - `frame_rate` / `frame_delay_ms` — cadencia de animación.
 - `blink_min_ms` / `blink_max_ms` — intervalo entre parpadeos.
 - `move_range_x` / `move_range_y` — rango de la pupila.

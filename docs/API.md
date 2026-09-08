@@ -30,6 +30,18 @@ No se permite copia ni asignación (`Eye_t(const Eye_t&) = delete`).
 | `Sleep(6)` | Dormido (ojos cerrados con temblores). |
 | `Saccades(7)` | Movimientos sacádicos rápidos. |
 
+### Enumeración `Eye::EyeStyle_e`
+
+| Valor | Estilo |
+|-------|--------|
+| `Classic(0)` | Ojo redondeado clásico, pupila circular, un brillo. |
+| `Anime(1)` | Elipse ancha a pantalla completa, pupila amplia, 2 brillos. |
+| `Feline(2)` | Elipse almendra, pupila vertical alargada. |
+| `Robot(3)` | Visor rectangular, pupila cuadrada con retícula. |
+
+Se seleccionan con el campo `style` de `EyeConfig_t`, con la clave `style` de
+`config/config.cfg` o con `--style <0..3>`.
+
 ### Estructura `Eye::EyeConfig_t`
 
 Parámetros de configuración del ojo. Ver `config/config.cfg` y
@@ -72,7 +84,7 @@ Driver del SSD1306 (heredado del proyecto BASIC) con API estilo Adrian/Adafruit:
 ## Línea de comandos
 
 ```
-bin/App [--version] [--mode N] [--config ARCHIVO] [--hw-config ARCHIVO] [--help]
+bin/App [--version] [--mode N] [--style N] [--config ARCHIVO] [--hw-config ARCHIVO] [--help]
 ```
 
 Ver `docs/USAGE.md` para detalles completos.

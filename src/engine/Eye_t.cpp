@@ -38,6 +38,62 @@ int randRange(int min, int max) {
     return min + (std::rand() % (max - min + 1));
 }
 
+/**
+ * @brief Limita un valor al rango [0, 1].
+ */
+float clamp01(float v) {
+    return v < 0.0f ? 0.0f : (v > 1.0f ? 1.0f : v);
+}
+
+/**
+ * @brief Dibuja el iris con un patrón de anillos para dar textura monocroma.
+ * @details El iris se rellena en blanco y luego se oscurecen anillos alternos
+ * (dither) para distinguirlo de la esclera en un OLED de 1 bit.
+ */
+void drawIrisArea(IDisplay& d, int16_t cx, int16_t cy, int16_t irisR) {
+    if (irisR <= 0) return;
+    d.fillCircle(cx, cy, irisR, DisplayWhite);
+    const float layer = std::max(1.0f, static_cast<float>(irisR) / 3.0f);
+    for (int16_t y = cy - irisR; y <= cy + irisR; ++y) {
+        for (int16_t x = cx - irisR; x <= cx + irisR; ++x) {
+            const int16_t dx = x - cx;
+            const int16_t dy = y - cy;
+            if (dx * dx + dy * dy <= irisR * irisR) {
+                const float dist = std::sqrt(static_cast<float>(dx * dx + dy * dy));
+                if (static_cast<int>(dist / layer) % 2 == 0) {
+                    d.drawPixel(x, y, DisplayBlack);
+                }
+            }
+        }
+    }
+}
+
+/**
+ * @brief Dibuja la ceja según el modo (expresión) sobre el borde superior del ojo.
+ * @details Con el ojo a pantalla completa, la ceja se dibuja encajada en la
+ * parte superior de la esclera (browY = cy - ry + 1 + dy). Se conservan las
+ * formas: arco (Happy), fruncida (Angry), elevada (Surprised) y neutra.
+ */
+void drawBrow(IDisplay& d, int mode, int16_t cx, int16_t cy, int16_t ry, int16_t dy) {
+    const int16_t browY = cy - ry + 1 + dy;
+    switch (static_cast<EyeMode_e>(mode)) {
+        case EyeMode_e::Happy:
+            d.drawLine(cx - 8, browY + 3, cx - 3, browY, DisplayBlack);
+            d.drawLine(cx + 3, browY, cx + 8, browY + 3, DisplayBlack);
+            break;
+        case EyeMode_e::Angry:
+            d.drawLine(cx - 8, browY, cx - 3, browY + 3, DisplayBlack);
+            d.drawLine(cx + 3, browY + 3, cx + 8, browY, DisplayBlack);
+            break;
+        case EyeMode_e::Surprised:
+            d.drawFastHLine(cx - 8, browY, 16, DisplayBlack);
+            break;
+        default:
+            d.drawFastHLine(cx - 8, browY + 1, 16, DisplayBlack);
+            break;
+    }
+}
+
 } // namespace anon
 
 // ------------------------- Constructor / Destructor ---------------------------
@@ -69,6 +125,8 @@ void Eye_t::printHelp() const {
            "  --mode <0..7>          Modo inicial del ojo:\n"
            "                           0 Normal, 1 Tracking, 2 Happy, 3 Surprised,\n"
            "                           4 Angry, 5 Sleepy, 6 Sleep, 7 Saccades.\n"
+           "  --style <0..3>         Estilo (versión) del ojo:\n"
+           "                           0 Classic, 1 Anime, 2 Feline, 3 Robot.\n"
            "  --config <archivo>     Ruta alternativa para config/config.cfg.\n"
            "  --hw-config <archivo>  Ruta alternativa para config/hardware.cfg.\n"
            "  --help, -h             Muestra esta ayuda.\n"
@@ -91,6 +149,14 @@ int Eye_t::parseArgs(int argc, char* argv[]) {
                 cfg_.mode > static_cast<int>(EyeMode_e::Saccades)) {
                 fprintf(stderr, "EyePet: modo inválido '%d' (0..7)\n", cfg_.mode);
                 cfg_.mode = static_cast<int>(EyeMode_e::Normal);
+            }
+        } else if (std::strcmp(argv[i], "--style") == 0 && i + 1 < argc) {
+            cfg_.style = std::atoi(argv[++i]);
+            // Valida el rango del estilo.
+            if (cfg_.style < static_cast<int>(EyeStyle_e::Classic) ||
+                cfg_.style > static_cast<int>(EyeStyle_e::Robot)) {
+                fprintf(stderr, "EyePet: estilo inválido '%d' (0..3)\n", cfg_.style);
+                cfg_.style = static_cast<int>(EyeStyle_e::Classic);
             }
         } else if (std::strcmp(argv[i], "--config") == 0 && i + 1 < argc) {
             configPath_ = argv[++i];
@@ -226,9 +292,11 @@ void Eye_t::animationLoop() {
         float open = cfg_.mode == static_cast<int>(EyeMode_e::Sleep) ? 0.0f : 1.0f;
         drawEye(open, pupilDX_, pupilDY_, pupilRCurrent_, browOffset_);
 
-        // Actualiza el brillo (depende de la posición de la pupila).
-        if (cfg_.glint) addGlint(cfg_.eyeCenterX + pupilDX_ + cfg_.glintDX,
-                                 cfg_.eyeCenterY + pupilDY_ + cfg_.glintDY);
+        // Actualiza el brillo (depende de la posición de la pupila). Solo se
+        // dibuja si el ojo está suficientemente abierto (no en el parpadeo).
+        if (cfg_.glint && blinkPhase_ > 0.5f)
+            addGlint(cfg_.eyeCenterX + pupilDX_ + cfg_.glintDX,
+                     cfg_.eyeCenterY + pupilDY_ + cfg_.glintDY);
 
         // Vuelca el buffer final a la pantalla.
         display_->update();
@@ -379,127 +447,248 @@ void Eye_t::clearScreenBuffer() {
 }
 
 void Eye_t::addGlint(int16_t cx, int16_t cy) {
-    // Dibuja un pequeño círculo blanco de brillo sobre el iris.
-    display_->fillCircle(cx, cy, cfg_.glintR, DisplayWhite);
-    // Pequeño núcleo más brillante (opcional, realismo).
-    if (cfg_.glintR >= 2) {
-        display_->fillCircle(cx, cy, std::max<int16_t>(1, cfg_.glintR - 1), DisplayWhite);
+    // Brillo según el estilo del ojo.
+    switch (static_cast<EyeStyle_e>(cfg_.style)) {
+        case EyeStyle_e::Anime:
+            // Dos brillos: uno grande arriba a la izquierda y otro pequeño.
+            display_->fillCircle(cx, cy, 3, DisplayWhite);
+            display_->fillCircle(cx + 8, cy + 8, 1, DisplayWhite);
+            break;
+        case EyeStyle_e::Feline:
+            // Brill anticlástico: pequeña línea vertical.
+            display_->drawFastVLine(cx, cy, 3, DisplayWhite);
+            break;
+        case EyeStyle_e::Robot:
+            // Círculo + línea de escaneo horizontal.
+            display_->fillCircle(cx, cy, 2, DisplayWhite);
+            display_->drawFastHLine(cx - 6, cy - 1, 3, DisplayWhite);
+            break;
+        case EyeStyle_e::Classic:
+        default:
+            display_->fillCircle(cx, cy, cfg_.glintR, DisplayWhite);
+            break;
     }
 }
+
+// -----------------------------------------------------------------------------
+// Geometría de ayuda (elipses y párpados)
+// -----------------------------------------------------------------------------
+
+void Eye_t::fillEllipseInto(int16_t cx, int16_t cy, int16_t rx, int16_t ry,
+                            uint8_t color) {
+    if (rx <= 0 || ry <= 0) return;
+    for (int16_t y = cy - ry; y <= cy + ry; ++y) {
+        const int16_t dy = y - cy;
+        const float frac = 1.0f - static_cast<float>(dy * dy) /
+                                        static_cast<float>(ry * ry);
+        if (frac < 0.0f) continue;
+        const int16_t xh = static_cast<int16_t>(static_cast<float>(rx) *
+                                        std::sqrt(frac));
+        display_->drawFastHLine(cx - xh, y, xh * 2 + 1, color);
+    }
+}
+
+void Eye_t::drawEyelidsCurve(int16_t cx, int16_t cy, int16_t rx, int16_t ry,
+                             float openF) {
+    if (rx <= 0 || ry <= 0) return;
+    if (openF <= 0.05f) { drawClosedEyeLine(cx, cy, rx); return; }
+
+    const int16_t halfEye = static_cast<int16_t>(static_cast<float>(ry) * openF);
+    for (int16_t x = cx - rx; x <= cx + rx; ++x) {
+        const int16_t dx = x - cx;
+        const float frac = 1.0f - static_cast<float>(dx * dx) /
+                                        static_cast<float>(rx * rx);
+        if (frac < 0.0f) continue;
+        const int16_t halfH = static_cast<int16_t>(static_cast<float>(ry) *
+                                        std::sqrt(frac));
+        const int16_t topY = cy - halfH;
+        const int16_t botY = cy + halfH;
+        const int16_t lidTop = cy - halfEye;
+        const int16_t lidBot = cy + halfEye;
+        if (lidTop > topY) display_->drawFastVLine(x, topY, lidTop - topY, DisplayBlack);
+        if (lidBot < botY) display_->drawFastVLine(x, lidBot, botY - lidBot, DisplayBlack);
+    }
+    display_->drawFastHLine(cx - rx, cy - halfEye, rx * 2, DisplayBlack);
+    display_->drawFastHLine(cx - rx, cy + halfEye, rx * 2, DisplayBlack);
+}
+
+void Eye_t::drawEyelidsFlat(int16_t cx, int16_t cy, int16_t rx, int16_t ry,
+                            float openF) {
+    if (rx <= 0 || ry <= 0) return;
+    if (openF <= 0.05f) { drawClosedEyeLine(cx, cy, rx); return; }
+
+    const int16_t halfEye = static_cast<int16_t>(static_cast<float>(ry) * openF);
+    // Párpado superior (recto) y párpado inferior.
+    display_->fillRect(cx - rx, cy - ry - ry, rx * 2, (ry - halfEye) + ry, DisplayBlack);
+    display_->fillRect(cx - rx, cy + halfEye, rx * 2, ry - halfEye, DisplayBlack);
+    display_->drawFastHLine(cx - rx, cy - halfEye, rx * 2, DisplayBlack);
+    display_->drawFastHLine(cx - rx, cy + halfEye, rx * 2, DisplayBlack);
+}
+
+void Eye_t::drawClosedEyeLine(int16_t cx, int16_t cy, int16_t rx) {
+    // Ojo cerrado: arco suave (∪) con los rabillos algo elevados y el centro
+    // bajo, como un párpado cerrado relajado.
+    const float a = std::max(2.0f, static_cast<float>(rx) / 6.0f);
+    for (int16_t x = cx - rx; x <= cx + rx; ++x) {
+        const float t = static_cast<float>(x - cx) / static_cast<float>(rx);
+        const int16_t y = cy + static_cast<int16_t>(a * (1.0f - t * t));
+        display_->drawPixel(x, y, DisplayBlack);
+        display_->drawPixel(x, y + 1, DisplayBlack);
+    }
+}
+
+void Eye_t::drawSleepLine(int16_t cx, int16_t cy, int16_t rx) {
+    // Párpado cerrado con suaves muescas en los extremos (aspecto relajado).
+    const float a = std::max(2.0f, static_cast<float>(rx) / 6.0f);
+    for (int16_t x = cx - rx; x <= cx + rx; ++x) {
+        const float t = static_cast<float>(x - cx) / static_cast<float>(rx);
+        const int16_t y = cy + static_cast<int16_t>(a * (1.0f - t * t));
+        display_->drawPixel(x, y, DisplayBlack);
+        display_->drawPixel(x, y + 1, DisplayBlack);
+    }
+}
+
+// -----------------------------------------------------------------------------
+// Variantes del ojo (estilos)
+// -----------------------------------------------------------------------------
+
+void Eye_t::drawClassicEye(float openAmount, int16_t dx, int16_t dy,
+                           int16_t r, int16_t browOffset) {
+    const int16_t cx = cfg_.eyeCenterX;
+    const int16_t cy = cfg_.eyeCenterY;
+    const int16_t R = cfg_.scleraR;
+
+    // Esclera circular.
+    display_->fillCircle(cx, cy, R, DisplayWhite);
+
+    if (openAmount <= 0.05f) {
+        if (cfg_.drawEyebrows) drawBrow(*display_, cfg_.mode, cx, cy, R, browOffset);
+        drawClosedEyeLine(cx, cy, R);
+        return;
+    }
+
+    const int16_t irisCX = cx + dx;
+    const int16_t irisCY = cy + dy;
+    drawIrisArea(*display_, irisCX, irisCY, cfg_.irisR);
+    if (r > 0) display_->fillCircle(irisCX, irisCY, r, DisplayBlack);
+
+    // Párpados que recortan el ojo según la apertura (curva).
+    drawEyelidsCurve(cx, cy, R, R, openAmount);
+    display_->drawCircle(cx, cy, R, DisplayBlack);
+
+    if (cfg_.drawEyebrows) drawBrow(*display_, cfg_.mode, cx, cy, R, browOffset);
+}
+
+void Eye_t::drawAnimeEye(float openAmount, int16_t dx, int16_t dy,
+                         int16_t r, int16_t browOffset) {
+    const int16_t cx = cfg_.eyeCenterX;
+    const int16_t cy = cfg_.eyeCenterY;
+    const int16_t R = cfg_.scleraR;
+    const int16_t rx = R + 2;   // elipse más ancha
+    const int16_t ry = R - 1;
+
+    // Esclera elíptica grande (ocupa la pantalla).
+    fillEllipseInto(cx, cy, rx, ry, DisplayWhite);
+
+    if (openAmount <= 0.05f) {
+        if (cfg_.drawEyebrows) drawBrow(*display_, cfg_.mode, cx, cy, R, browOffset);
+        drawSleepLine(cx, cy, rx);
+        return;
+    }
+
+    const int16_t irisCX = cx + dx;
+    const int16_t irisCY = cy + dy;
+    const int16_t irisR = static_cast<int16_t>(cfg_.irisR * 1.15f);
+    drawIrisArea(*display_, irisCX, irisCY, irisR);
+    // Pupila grande (estilo anime).
+    const int16_t pr = static_cast<int16_t>(r * 1.6f);
+    if (pr > 0) display_->fillCircle(irisCX, irisCY, pr, DisplayBlack);
+
+    drawEyelidsCurve(cx, cy, rx, ry, openAmount);
+
+    if (cfg_.drawEyebrows) drawBrow(*display_, cfg_.mode, cx, cy, R, browOffset);
+}
+
+void Eye_t::drawFelineEye(float openAmount, int16_t dx, int16_t dy,
+                          int16_t r, int16_t browOffset) {
+    const int16_t cx = cfg_.eyeCenterX;
+    const int16_t cy = cfg_.eyeCenterY;
+    const int16_t R = cfg_.scleraR;
+    const int16_t rx = R - 2;   // elipse almendra
+    const int16_t ry = R + 2;
+
+    fillEllipseInto(cx, cy, rx, ry, DisplayWhite);
+
+    if (openAmount <= 0.05f) {
+        if (cfg_.drawEyebrows) drawBrow(*display_, cfg_.mode, cx, cy, R, browOffset);
+        drawClosedEyeLine(cx, cy, rx);
+        return;
+    }
+
+    const int16_t irisCX = cx + dx;
+    const int16_t irisCY = cy + dy;
+    drawIrisArea(*display_, irisCX, irisCY, cfg_.irisR);
+    // Pupila vertical alargada (elipse estrecha y alta).
+    const int16_t pw = std::max<int16_t>(2, static_cast<int16_t>(r * 0.6f));
+    const int16_t ph = static_cast<int16_t>(r * 2.2f);
+    fillEllipseInto(irisCX, irisCY, pw, ph, DisplayBlack);
+
+    drawEyelidsCurve(cx, cy, rx, ry, openAmount);
+
+    if (cfg_.drawEyebrows) drawBrow(*display_, cfg_.mode, cx, cy, R, browOffset);
+}
+
+void Eye_t::drawRobotEye(float openAmount, int16_t dx, int16_t dy,
+                         int16_t r, int16_t browOffset) {
+    const int16_t cx = cfg_.eyeCenterX;
+    const int16_t cy = cfg_.eyeCenterY;
+    const int16_t R = cfg_.scleraR;
+    const int16_t hw = R + 6;   // media anchura del visor
+    const int16_t hh = R + 2;   // media altura del visor
+
+    // Esclera rectangular (visor).
+    display_->fillRect(cx - hw, cy - hh, hw * 2, hh * 2, DisplayWhite);
+
+    if (openAmount <= 0.05f) {
+        if (cfg_.drawEyebrows) drawBrow(*display_, cfg_.mode, cx, cy, R, browOffset);
+        drawClosedEyeLine(cx, cy, hw);
+        return;
+    }
+
+    const int16_t irisCX = cx + dx;
+    const int16_t irisCY = cy + dy;
+    drawIrisArea(*display_, irisCX, irisCY, cfg_.irisR);
+    // Pupila cuadrada con retícula.
+    const int16_t ps = std::max<int16_t>(3, static_cast<int16_t>(r * 1.3f));
+    display_->fillRect(irisCX - ps, irisCY - ps, ps * 2, ps * 2, DisplayBlack);
+    for (int16_t gy = irisCY - ps + 2; gy <= irisCY + ps - 2; gy += 2) {
+        for (int16_t gx = irisCX - ps + 2; gx <= irisCX + ps - 2; gx += 2) {
+            display_->drawPixel(gx, gy, DisplayWhite);
+        }
+    }
+
+    // Párpados rectos y contorno de la visera.
+    drawEyelidsFlat(cx, cy, hw, hh, openAmount);
+    display_->drawRect(cx - hw, cy - hh, hw * 2, hh * 2, DisplayBlack);
+
+    if (cfg_.drawEyebrows) drawBrow(*display_, cfg_.mode, cx, cy, R, browOffset);
+}
+
+// -----------------------------------------------------------------------------
+// Dispatcher principal de dibujo (selecciona el estilo)
+// -----------------------------------------------------------------------------
 
 void Eye_t::drawEye(float openAmount, int16_t pupilDX, int16_t pupilDY,
                     int16_t pupilR, int16_t browOffset) {
     clearScreenBuffer();
 
-    const int16_t cx = cfg_.eyeCenterX;
-    const int16_t cy = cfg_.eyeCenterY;
-    const int16_t scleraR = cfg_.scleraR;
-
-    // Compute la apertura vertical efectiva del párpado (0..scleraR).
-    const float openF = openAmount < 0.0f ? 0.0f : (openAmount > 1.0f ? 1.0f : openAmount);
-    const int16_t halfEye = static_cast<int16_t>(scleraR * openF);
-
-    // 1) Esclera (blanco del ojo): círculo.
-    display_->fillCircle(cx, cy, scleraR, DisplayWhite);
-
-    if (openF <= 0.05f) {
-        // Ojo cerrado: muestra solo la línea del párpado.
-        display_->drawFastHLine(cx - scleraR, cy, scleraR * 2, DisplayBlack);
-        // Dibuja la ceja (si procede) y termina.
-        if (cfg_.drawEyebrows) {
-            display_->drawFastHLine(cx - 10, cy - scleraR - 6 + browOffset, 20, DisplayBlack);
-        }
-        return;
-    }
-
-    // 2) Párpados superior e inferior (tapan la esclera según la apertura).
-    //    La zona por encima del párpado superior y por debajo del inferior se
-    //    rellena con negro, encajando la forma del ojo.
-    //    Párpado superior: y < cy - halfEye
-    display_->fillRect(cx - scleraR, cy - scleraR - scleraR,
-                    scleraR * 2, (scleraR - halfEye) + scleraR, DisplayBlack);
-
-    // 3) Iris (círculo de color) centrado en la esclera, desplazado con la pupila.
-    const int16_t irisCX = cx + pupilDX;
-    const int16_t irisCY = cy + pupilDY;
-    const int16_t irisR = cfg_.irisR;
-    display_->fillCircle(irisCX, irisCY, irisR, DisplayWhite); // limpiar zona del iris
-
-    // Iris con color (gris medio: 0x40 = patrón punteado para distinguirlo).
-    // Usamos un patrón de rejilla para dar textura al iris en pantalla monocromo.
-    for (int16_t y = irisCY - irisR; y <= irisCY + irisR; ++y) {
-        for (int16_t x = irisCX - irisR; x <= irisCX + irisR; ++x) {
-            const int16_t dx = x - irisCX;
-            const int16_t dy = y - irisCY;
-            if (dx * dx + dy * dy <= irisR * irisR) {
-                // Patrón de anillos radiales para simular el iris.
-                const float dist = std::sqrt(static_cast<float>(dx * dx + dy * dy));
-                const int ring = static_cast<int>(dist / (irisR / 3.0f));
-                if (ring % 2 == 0) display_->drawPixel(x, y, DisplayWhite);
-                // else: dejamos la esclera (ya blanca) -> efecto de iris claro.
-            }
-        }
-    }
-
-    // 4) Pupila (círculo negro central).
-    if (pupilR > 0) {
-        display_->fillCircle(irisCX, irisCY, pupilR, DisplayBlack);
-    }
-
-    // 5) Contorno del ojo.
-    display_->drawCircle(cx, cy, scleraR, DisplayBlack);
-
-    // 6) Párpados que recortan el ojo según la apertura (curva superior/inferior).
-    //    Párpado superior (curva): rellena la zona superior.
-    for (int16_t x = cx - scleraR; x <= cx + scleraR; ++x) {
-        const int16_t dx = x - cx;
-        const int16_t halfH = static_cast<int16_t>(std::sqrt(
-            static_cast<float>(scleraR * scleraR - dx * dx)));
-        // Línea de párpado superior a la altura de halfEye desde el centro.
-        const int16_t lidY = cy - halfEye;
-        // Rellena desde el borde superior del círculo hasta el párpado.
-        const int16_t topY = cy - halfH;
-        if (lidY > topY && halfEye >= 0) {
-            display_->drawFastVLine(x, topY, lidY - topY, DisplayBlack);
-        }
-        // Párpado inferior: rellena desde lidY inferior hasta el borde del círculo.
-        const int16_t bottomLidY = cy + halfEye;
-        const int16_t bottomY = cy + halfH;
-        if (bottomLidY < bottomY && halfEye >= 0) {
-            display_->drawFastVLine(x, bottomLidY, bottomY - bottomLidY, DisplayBlack);
-        }
-    }
-
-    // 7) Línea de unión de los párpados (a la altura del rabillo).
-    const int16_t lidY = cy - halfEye;
-    const int16_t bottomLidY = cy + halfEye;
-    display_->drawFastHLine(cx - scleraR, bottomLidY, scleraR * 2, DisplayBlack);
-    display_->drawFastHLine(cx - scleraR, lidY, scleraR * 2, DisplayBlack);
-
-    // 8) Cejas (expresión).
-    if (cfg_.drawEyebrows && openF > 0.05f) {
-        const int16_t browY = cy - scleraR - 6;
-        switch (static_cast<EyeMode_e>(cfg_.mode)) {
-            case EyeMode_e::Happy:
-                // Cejas arqueadas hacia arriba.
-                display_->drawLine(cx - 10, browY + 2, cx - 4, browY - 3, DisplayBlack);
-                display_->drawLine(cx - 4, browY - 3, cx + 4, browY - 3, DisplayBlack);
-                display_->drawLine(cx + 4, browY - 3, cx + 10, browY + 2, DisplayBlack);
-                break;
-            case EyeMode_e::Angry:
-                // Cejas fruncidas (inclinadas hacia dentro).
-                display_->drawLine(cx - 10, browY - 3, cx - 2, browY + 2, DisplayBlack);
-                display_->drawLine(cx + 2, browY + 2, cx + 10, browY - 3, DisplayBlack);
-                break;
-            case EyeMode_e::Surprised:
-                // Cejas muy elevadas.
-                display_->drawFastHLine(cx - 10, browY - 4 + browOffset, 20, DisplayBlack);
-                break;
-            default:
-                // Cejas neutras con un desplazamiento (sueño hacia abajo).
-                display_->drawFastHLine(cx - 10, browY + browOffset, 20, DisplayBlack);
-                break;
-        }
+    const float openF = clamp01(openAmount);
+    switch (static_cast<EyeStyle_e>(cfg_.style)) {
+        case EyeStyle_e::Anime:  drawAnimeEye(openF, pupilDX, pupilDY, pupilR, browOffset); break;
+        case EyeStyle_e::Feline: drawFelineEye(openF, pupilDX, pupilDY, pupilR, browOffset); break;
+        case EyeStyle_e::Robot:  drawRobotEye(openF, pupilDX, pupilDY, pupilR, browOffset); break;
+        case EyeStyle_e::Classic:
+        default:                 drawClassicEye(openF, pupilDX, pupilDY, pupilR, browOffset); break;
     }
 }
 

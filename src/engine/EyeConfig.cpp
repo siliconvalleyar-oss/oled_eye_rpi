@@ -108,6 +108,7 @@ void applyToConfig(EyeConfig_t& cfg, const std::string& key,
         else if (key == "spi_reset_active_high") cfg.spi_reset_active_high = toBool(value, cfg.spi_reset_active_high);
     } else {
         if      (key == "mode")                cfg.mode         = toInt(value, cfg.mode);
+        else if (key == "style")               cfg.style        = toInt(value, cfg.style);
         else if (key == "frame_rate")          cfg.frameRate    = toFloat(value, cfg.frameRate);
         else if (key == "frame_delay_ms")      cfg.frameDelayMs = toInt(value, cfg.frameDelayMs);
         else if (key == "move_range_x")        cfg.moveRangeX   = static_cast<unsigned>(toInt(value, (int)cfg.moveRangeX));

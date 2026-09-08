@@ -76,6 +76,7 @@ make remote        # requiere config/deploy.cfg y credenciales SSH
 sudo ./bin/App                  # ejecuta con el modo/config del archivo config.cfg
 sudo ./bin/App --version        # muestra la versión y termina
 sudo ./bin/App --mode 6         # inicia en modo Dormido
+sudo ./bin/App --style 2        # inicia con el ojo estilo Felino
 sudo ./bin/App --config config/config.cfg --hw-config config/hardware.cfg
 sudo ./bin/App --help           # lista de opciones
 ```
@@ -85,15 +86,34 @@ Opciones de línea de comandos:
 - `--version, -v` — muestra la versión y termina sin tocar el hardware.
 - `--mode <0..7>` — modo inicial (0 Normal, 1 Tracking, 2 Happy, 3 Surprised,
   4 Angry, 5 Sleepy, 6 Sleep, 7 Saccades).
+- `--style <0..3>` — estilo (versión) del ojo: 0 Classic, 1 Anime, 2 Feline,
+  3 Robot.
 - `--config <archivo>` — ruta alternativa para `config/config.cfg`.
 - `--hw-config <archivo>` — ruta alternativa para `config/hardware.cfg`.
 - `--help, -h` — muestra la ayuda.
+
+## Estilos del ojo
+
+EyePet incluye 4 estilos (versiones) de ojo que cambian la esclera, la pupila
+y el brillo. Se eligen con `style` en `config/config.cfg` o con `--style`:
+
+| # | Estilo   | Descripción                                            |
+|---|----------|--------------------------------------------------------|
+| 0 | Classic  | Ojo redondeado clásico, pupila circular, un brillo.     |
+| 1 | Anime    | Elipse grande a pantalla completa, pupila amplia, 2 brillos. |
+| 2 | Feline   | Felino: iris marcado, pupila vertical alargada.         |
+| 3 | Robot    | Visor rectangular, pupila cuadrada con retícula.        |
+
+El ojo ocupa **toda la pantalla** (128×64): por defecto la esclera tiene
+`sclera_r = 30` centrada en `(64, 32)` (filas ~2..62). Ajusta la geometría en
+`config/config.cfg` si quieres un ojo más pequeño o descentrado.
 
 ## Configuración de los modos del ojo
 
 Todos los parámetros se ajustan en `config/config.cfg`:
 
-- Modo inicial (`mode`), tasa de fotogramas (`frame_rate` / `frame_delay_ms`).
+- Modo inicial (`mode`), estilo (`style`), tasa de fotogramas
+  (`frame_rate` / `frame_delay_ms`).
 - Parpadeo: intervalo (`blink_min_ms`, `blink_max_ms`) y duración de fases.
 - Movimiento: rango de la pupila (`move_range_x`, `move_range_y`).
 - Geometría: centro y radios de esclera/iris/pupila (`eye_center_x`, ...).
