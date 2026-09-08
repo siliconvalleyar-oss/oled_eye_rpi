@@ -60,7 +60,9 @@ enum class EyeStyle_e : int {
     Classic = 0, ///< Ojo clásico redondeado (pupila circular, un brillo).
     Anime   = 1, ///< Estilo anime: elipse grande, pupila amplia y 2 brillos.
     Feline  = 2, ///< Felino: pupila vertical alargada, iris marcado.
-    Robot   = 3  ///< Robótico: esclera rectangular, pupila cuadrada de rejilla.
+    Robot   = 3, ///< Robótico: esclera rectangular, pupila cuadrada de rejilla.
+    Squint  = 4, ///< Entrecerrado: párpados dobles gruesos, pupila circular.
+    Heart   = 5  ///< Pupila en forma de corazón (dos círculos + triángulo).
 };
 
 /**
@@ -115,6 +117,7 @@ struct EyeConfig_t {
 
     // --- Otras opciones ---
     bool    debug = false;     ///< Salida de depuración por consola.
+    unsigned demoSeconds = 180; ///< Duración de la demo de efectos (s).
 };
 
 /**
@@ -188,10 +191,16 @@ private:
                        int16_t r, int16_t browOffset);
     void drawRobotEye(float openAmount, int16_t dx, int16_t dy,
                       int16_t r, int16_t browOffset);
+    void drawSquintEye(float openAmount, int16_t dx, int16_t dy,
+                       int16_t r, int16_t browOffset);
+    void drawHeartEye(float openAmount, int16_t dx, int16_t dy,
+                      int16_t r, int16_t browOffset);
 
     // --- Utilidades de dibujo geométrico ---
     void fillEllipseInto(int16_t cx, int16_t cy, int16_t rx, int16_t ry,
                          uint8_t color); ///< Elipse rellena por barrido horizontal.
+    void fillTriangleInto(int16_t x0, int16_t y0, int16_t x1, int16_t y1,
+                          int16_t x2, int16_t y2, uint8_t color); ///< Triángulo relleno.
     void drawEyelidsCurve(int16_t cx, int16_t cy, int16_t rx, int16_t ry,
                           float openF);  ///< Recorte curvo (blink/eclosionado).
     void drawEyelidsFlat(int16_t cx, int16_t cy, int16_t rx, int16_t ry,
@@ -199,11 +208,30 @@ private:
     void drawClosedEyeLine(int16_t cx, int16_t cy, int16_t rx); ///< Línea de dormido.
     void drawSleepLine(int16_t cx, int16_t cy, int16_t rx);     ///< Línea + muesca.
 
+    // --- Menú interactivo / demo ---
+    void handleMenuKey(int ch);    ///< Procesa una tecla del menú de consola.
+    void setStyle(int s);          ///< Ajusta el estilo y su estado de rotación.
+    void printMenuBanner() const;  ///< Muestra las opciones del menú.
+    void printState() const;       ///< Muestra el estado actual (estilo/modo/tiempo).
+
     // --- Modos de comportamiento ---
     void updateNormal(float dtMs);
     void updateTracking(float dtMs);
     void updateSaccades(float dtMs);
     void updateSleep(float dtMs);
+    void updateLookLR(float dtMs);    ///< Paneo horizontal de la pupila (izq -> der).
+
+    // --- Demo guiada de 3 minutos (secuencia de efectos) ---
+    enum DemoPhase_e : int {
+        DemoBlink = 0, ///< Abierto con parpadeo espontáneo y brillo.
+        DemoLook,      ///< Apertura + mirada de izquierda a derecha.
+        DemoHappy,     ///< Expresión alegre.
+        DemoSad,       ///< Expresión triste (párpado medio, mirada baja).
+        DemoWink,      ///< Guiño (párpado que cierra y abre lentamente).
+        DemoClosed,    ///< Párpado cerrado (dormido).
+        DemoPhaseCount
+    };
+    void updateDemo(float dtMs);     ///< Avanza la secuencia de efectos de la demo.
 
     // --- Utilidades de animación ---
     bool  shouldBlink(uint32_t nowMs); ///< Determina si toca parpadear.
@@ -225,8 +253,10 @@ private:
     uint32_t lastTickMs_ = 0;             ///< Último tick de tiempo simulado.
     float    blinkTimerMs_ = 0;           ///< Temporizador para el siguiente parpadeo.
     float    blinkStageTimerMs_ = 0;      ///< Temporizador de la fase ciega actual.
+    int      blinkStage_ = 0;             ///< Fase del parpadeo (0 cierra, 1 cerrado, 2 abre).
     float    blinkPhase_ = 0.0f;          ///< 1.0 abierto, 0.0 cerrado.
     bool     blinking_ = false;           ///< true si se está parpadeando.
+    bool     overrideBlink_ = false;      ///< true si la demo controla blinkPhase_ a mano.
     int      frameDelayMs_ = 33;          ///< Delay por fotograma (ms).
     int16_t  pupilDX_ = 0;                ///< Desplazamiento X actual de la pupila.
     int16_t  pupilDY_ = 0;                ///< Desplazamiento Y actual de la pupila.
@@ -235,8 +265,20 @@ private:
     float    moveSpeedPx_ = 0.02f;        ///< Velocidad de suavizado (px/ms).
     int16_t  browOffset_ = 0;             ///< Desplazamiento vertical de la ceja.
     int16_t  pupilRCurrent_ = 5;          ///< Radio actual de la pupila.
+    int16_t  pupilBoost_ = 0;             ///< Dilatación manual de la pupila (menú).
+    uint8_t  contrast_ = 0xFF;            ///< Contraste actual del display.
     float    sleepTimerMs_ = 0;           ///< Temporizador para modo dormido.
     uint32_t frameCounter_ = 0;           ///< Contador de fotogramas.
+
+    // --- Demo de 3 minutos y menú ---
+    bool    styleRotate_ = false;         ///< true: rotar por todos los estilos.
+    float   demoElapsedMs_ = 0;           ///< Tiempo transcurrido de la demo.
+    int     demoSeconds_ = 180;           ///< Duración total de la demo (s).
+    int     demoPhase_ = DemoBlink;       ///< Fase actual de la secuencia de efectos.
+    float   demoPhaseTimerMs_ = 0;        ///< Temporizador de la fase actual.
+    bool    demoWinkGoing_ = false;       ///< true durante la animación del guiño.
+    float   demoWinkTimerMs_ = 0;         ///< Temporizador del guiño.
+    bool    kbdActive_ = false;           ///< true si el teclado está en modo no bloqueante.
 };
 
 } // namespace Eye

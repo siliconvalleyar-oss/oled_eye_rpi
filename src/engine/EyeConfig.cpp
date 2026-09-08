@@ -128,6 +128,7 @@ void applyToConfig(EyeConfig_t& cfg, const std::string& key,
         else if (key == "glint_dy")            cfg.glintDY      = static_cast<int16_t>(toInt(value, cfg.glintDY));
         else if (key == "glint_r")             cfg.glintR       = static_cast<uint8_t>(toInt(value, cfg.glintR));
         else if (key == "draw_eyebrows")       cfg.drawEyebrows = toBool(value, cfg.drawEyebrows);
+        else if (key == "demo_seconds")        cfg.demoSeconds  = static_cast<unsigned>(toInt(value, (int)cfg.demoSeconds));
         else if (key == "debug")               cfg.debug        = toBool(value, cfg.debug);
     }
 }

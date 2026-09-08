@@ -2,6 +2,33 @@
 
 Historial de versiones de EyePet.
 
+## [v1.2.0] — 2026-09-07
+
+### Añadido
+
+- Dos estilos de ojo nuevos (total 6, `--style 0..5`):
+  - `4 = Squint`: entrecerrado con párpados dobles gruesos.
+  - `5 = Heart`: pupila en forma de corazón (dos círculos + triángulo).
+- Menú interactivo por teclado (sin pulsar Enter) durante la ejecución:
+  - `0`/`T`: rotar por todos los estilos; `1..6`: elegir un ojo concreto.
+  - `b` parpadeo, `g` brillo, `e` cejas, `+`/`-` velocidad (fps),
+    `c`/`C` contraste, `p`/`P` dilatación de la pupila, `d` depuración,
+    `h` ayuda, `q`/`Q`/`Esc` salir.
+- Demo guiada de 3 minutos (configurable con `demo_seconds` en `config.cfg`
+  y `--demo <segundos>`) que muestra todos los efectos: parpadeo espontáneo,
+  mirada de izquierda a derecha, feliz (pupila dilatada), triste (párpado
+  medio y mirada baja), guiño lento y párpado cerrado (dormido).
+- Parpadeo real con fases animadas (cerrar → cerrado → abrir con easing);
+  la demo controla `blinkPhase_` cuando corresponde.
+- `--style`/`--mode`/`--demo` de la CLI ahora tienen prioridad sobre
+  `config/config.cfg` (antes la configuración pisaba la opción de consola).
+
+### Cambiado
+
+- `config.cfg`: comentarios de estilos ampliados a 0..5 y nueva clave
+  `demo_seconds = 180`.
+- `--help` muestra los 6 estilos y la opción `--demo`.
+
 ## [v1.1.0] — 2026-09-07
 
 ### Añadido

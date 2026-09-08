@@ -20,7 +20,8 @@ ojo con la configuración de `config/config.cfg`.
 |--------|-------------|
 | `--version`, `-v` | Muestra la versión y termina (no toca el hardware). |
 | `--mode <0..7>` | Modo inicial del ojo (0 Normal, 1 Tracking, 2 Happy, 3 Surprised, 4 Angry, 5 Sleepy, 6 Sleep, 7 Saccades). |
-| `--style <0..3>` | Estilo (versión) del ojo (0 Classic, 1 Anime, 2 Feline, 3 Robot). |
+| `--style <0..5>` | Estilo (versión) del ojo (0 Classic, 1 Anime, 2 Feline, 3 Robot, 4 Squint, 5 Heart). |
+| `--demo <segundos>` | Duración de la demo de efectos (por defecto 180 s). |
 | `--config <archivo>` | Ruta alternativa para `config/config.cfg`. |
 | `--hw-config <archivo>` | Ruta alternativa para `config/hardware.cfg`. |
 | `--help`, `-h` | Muestra la ayuda. |
@@ -30,9 +31,13 @@ ojo con la configuración de `config/config.cfg`.
 ```sh
 ./bin/App --version
 sudo ./bin/App --mode 1
-sudo ./bin/App --style 3          # ojo estilo Robot
+sudo ./bin/App --style 5          # ojo estilo Heart
+sudo ./bin/App --demo 60          # demo de 60 s con menú interactivo
 sudo ./bin/App --mode 6 --config /opt/eye/config.cfg
 ```
+
+> Las opciones `--mode`, `--style` y `--demo` tienen prioridad sobre los
+> valores de `config/config.cfg`.
 
 ## Modos del ojo
 
@@ -59,6 +64,32 @@ El ojo **ocupa toda la pantalla** (128×64) con la geometría por defecto
 | Anime | 1 | elipse ancha | amplia | 2 brillos |
 | Feline | 2 | elipse almendra | vertical alargada | línea vertical |
 | Robot | 3 | rectángulo (visor) | cuadrada con retícula | punto + scanline |
+| Squint | 4 | círculo entrecerrado | circular | punto pequeño |
+| Heart | 5 | elipse | corazón (2 círculos + triángulo) | punto superior |
+
+## Menú interactivo y demo de efectos
+
+Durante la ejecución se muestra un menú controlado **por teclado sin pulsar
+Enter**:
+
+| Tecla | Acción |
+|-------|--------|
+| `0`/`T` | Rotar por todos los estilos (modo TODOS). |
+| `1..6` | Elegir un estilo concreto. |
+| `b` | Parpadeo on/off. |
+| `g` | Brillo on/off. |
+| `e` | Cejas on/off. |
+| `+`/`-` | Velocidad (5..60 fps). |
+| `c`/`C` | Contraste (0x00..0xFF). |
+| `p`/`P` | Dilatación de la pupila (−4..+6). |
+| `d` | Depuración on/off. |
+| `h` | Ayuda (reimprime el menú). |
+| `q`/`Q`/`Esc` | Salir. |
+
+La demo guiada (`demo_seconds`, por defecto 180 s) recorre la secuencia:
+**parpadeo espontáneo** → **mirada izquierda-derecha** → **feliz** →
+**triste** → **guiño** → **párpado cerrado**. Al terminar restaura el teclado y
+sale. Se ajusta con `demo_seconds` en `config.cfg` o con `--demo <segundos>`.
 
 ## Configuración dinámica
 
@@ -71,7 +102,7 @@ Edita `config/config.cfg` para cambiar parámetros sin recompilar:
 - `move_range_x` / `move_range_y` — rango de la pupila.
 - `sclera_r`, `iris_r`, `pupil_r` — tamaños del ojo.
 - `glint`, `glint_dx`, `glint_dy`, `glint_r` — brillo/reflejo.
-- `draw_eyebrows`, `debug` — cejas y depuración.
+- `draw_eyebrows`, `demo_seconds`, `debug` — cejas, demo de efectos y depuración.
 
 El protocolo (I2C/SPI), la dirección y los pines se configuran en
 `config/hardware.cfg`.

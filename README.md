@@ -76,7 +76,8 @@ make remote        # requiere config/deploy.cfg y credenciales SSH
 sudo ./bin/App                  # ejecuta con el modo/config del archivo config.cfg
 sudo ./bin/App --version        # muestra la versión y termina
 sudo ./bin/App --mode 6         # inicia en modo Dormido
-sudo ./bin/App --style 2        # inicia con el ojo estilo Felino
+sudo ./bin/App --style 5        # inicia con el ojo estilo Heart
+sudo ./bin/App --demo 60        # demo de efectos de 60 s con menú interactivo
 sudo ./bin/App --config config/config.cfg --hw-config config/hardware.cfg
 sudo ./bin/App --help           # lista de opciones
 ```
@@ -86,15 +87,16 @@ Opciones de línea de comandos:
 - `--version, -v` — muestra la versión y termina sin tocar el hardware.
 - `--mode <0..7>` — modo inicial (0 Normal, 1 Tracking, 2 Happy, 3 Surprised,
   4 Angry, 5 Sleepy, 6 Sleep, 7 Saccades).
-- `--style <0..3>` — estilo (versión) del ojo: 0 Classic, 1 Anime, 2 Feline,
-  3 Robot.
+- `--style <0..5>` — estilo (versión) del ojo: 0 Classic, 1 Anime, 2 Feline,
+  3 Robot, 4 Squint, 5 Heart.
+- `--demo <segundos>` — duración de la demo de efectos (por defecto 180 s).
 - `--config <archivo>` — ruta alternativa para `config/config.cfg`.
 - `--hw-config <archivo>` — ruta alternativa para `config/hardware.cfg`.
 - `--help, -h` — muestra la ayuda.
 
 ## Estilos del ojo
 
-EyePet incluye 4 estilos (versiones) de ojo que cambian la esclera, la pupila
+EyePet incluye 6 estilos (versiones) de ojo que cambian la esclera, la pupila
 y el brillo. Se eligen con `style` en `config/config.cfg` o con `--style`:
 
 | # | Estilo   | Descripción                                            |
@@ -103,10 +105,37 @@ y el brillo. Se eligen con `style` en `config/config.cfg` o con `--style`:
 | 1 | Anime    | Elipse grande a pantalla completa, pupila amplia, 2 brillos. |
 | 2 | Feline   | Felino: iris marcado, pupila vertical alargada.         |
 | 3 | Robot    | Visor rectangular, pupila cuadrada con retícula.        |
+| 4 | Squint   | Entrecerrado: párpados dobles gruesos.                  |
+| 5 | Heart    | Pupila en forma de corazón (dos círculos + triángulo).  |
 
 El ojo ocupa **toda la pantalla** (128×64): por defecto la esclera tiene
 `sclera_r = 30` centrada en `(64, 32)` (filas ~2..62). Ajusta la geometría en
 `config/config.cfg` si quieres un ojo más pequeño o descentrado.
+
+## Menú interactivo y demo de efectos
+
+Durante la ejecución, EyePet muestra un menú que se controla **por teclado sin
+pulsar Enter**:
+
+| Tecla | Acción                                        |
+|-------|-----------------------------------------------|
+| `0`/`T` | Rotar por todos los estilos (modo TODOS).    |
+| `1..6` | Elegir un estilo concreto (Classic..Heart).  |
+| `b`   | Activar/desactivar parpadeo.                  |
+| `g`   | Activar/desactivar brillo.                    |
+| `e`   | Activar/desactivar cejas.                     |
+| `+`/`-` | Velocidad (5..60 fps).                      |
+| `c`/`C` | Contraste del display (0x00..0xFF).          |
+| `p`/`P` | Dilatación de la pupila (−4..+6).            |
+| `d`   | Depuración por consola on/off.                |
+| `h`   | Mostrar esta ayuda.                           |
+| `q`/`Q`/`Esc` | Salir.                              |
+
+La demo guiada de efectos dura `demo_seconds` (180 s por defecto) y muestra
+secuencialmente: **parpadeo espontáneo**, **mirada de izquierda a derecha**,
+**feliz**, **triste**, **guiño** y **párpado cerrado**. Al terminar, el programa
+restaura el teclado y sale. Se ajusta con `demo_seconds` en `config.cfg` o con
+`--demo <segundos>`.
 
 ## Configuración de los modos del ojo
 
@@ -118,7 +147,8 @@ Todos los parámetros se ajustan en `config/config.cfg`:
 - Movimiento: rango de la pupila (`move_range_x`, `move_range_y`).
 - Geometría: centro y radios de esclera/iris/pupila (`eye_center_x`, ...).
 - Brillo/reflejo (`glint`, `glint_dx`, `glint_dy`, `glint_r`).
-- Cejas (`draw_eyebrows`) y depuración (`debug`).
+- Cejas (`draw_eyebrows`), demo de efectos (`demo_seconds`) y depuración
+  (`debug`).
 
 El **hardware** (protocolo I2C o SPI, dirección, pines) se configura en
 `config/hardware.cfg`.
